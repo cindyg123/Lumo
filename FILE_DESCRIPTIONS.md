@@ -35,10 +35,10 @@ A comprehensive web server that provides the user interface and management syste
 
 ---
 
-### [drowsiness_detector_with_alerts.py](drowsiness_detector_with_alerts.py)
-**Main Drowsiness Detection System with Audio Alerts**
+### [safesense.py](safesense.py)
+**Production Drowsiness Detection System**
 
-The production-ready version of the drowsiness detection system with integrated audio alerts.
+The production-ready version of the SafeSense drowsiness detection system with integrated audio alerts.
 
 **Features:**
 - Real-time face mesh tracking using MediaPipe
@@ -75,7 +75,7 @@ A streamlined version of the drowsiness detection system without audio alerts.
 - Raspberry Pi Camera support
 - Lightweight and focused on core detection
 
-**Differences from drowsiness_detector_with_alerts.py:**
+**Differences from safesense.py:**
 - No audio alert system
 - No pyttsx3 or playsound dependencies
 - Displays at 640x480 (vs 1920x1080)
@@ -143,9 +143,9 @@ An experimental machine learning model using quantum computing concepts for eye 
          ├── users.json
          └── alert_style.json
                  ↓
-         ┌──────────────────────────────────────┐
-         │  drowsiness_detector_with_alerts.py  │ ← Main Detection System
-         └──────────────────────────────────────┘
+         ┌──────────────┐
+         │  safesense.py│ ← Main Detection System
+         └──────────────┘
                  ↑
          ┌──────────────┐
          │  Picamera2   │ ← Raspberry Pi Camera
@@ -213,7 +213,7 @@ An experimental machine learning model using quantum computing concepts for eye 
 
 2. **Run the detection system:**
    ```bash
-   python drowsiness_detector_with_alerts.py
+   python safesense.py
    ```
 
 3. **Controls:**
@@ -226,6 +226,6 @@ An experimental machine learning model using quantum computing concepts for eye 
 
 1. **head_pose_prototype.py** - Initial head pose tracking concept
 2. **basic_drowsiness_detector.py** - Added eye closure detection
-3. **drowsiness_detector_with_alerts.py** - Added audio alerts and customization
+3. **safesense.py** - Production system with audio alerts and customization
 4. **web_dashboard.py** - Web-based configuration and management
 5. **quantum_eye_classifier.py** - Experimental quantum ML approach (research)
