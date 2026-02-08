@@ -5,10 +5,10 @@ Press 'q' to quit.
 
 import cv2
 
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(8)
 
 if not cap.isOpened():
-    cap = cv2.VideoCapture(1)
+    cap = cv2.VideoCapture(9)
 
 if not cap.isOpened():
     print("Error: Could not open camera.")

@@ -15,7 +15,10 @@ import time  # Time library for FPS calculation
 import pyttsx3  # Text-to-speech engine for audio alerts
 import os  # Operating system interface for file operations
 import json  # JSON library for reading configuration files
-from picamera2 import Picamera2  # Raspberry Pi camera interface
+import argparse  # Command line argument parsing
+
+# Camera selection: "picamera" for Raspberry Pi camera, "usb" for Arducam OV2311
+# Use command line argument --camera usb or --camera picamera to select
 
 # Initialize text-to-speech engine for audio alerts
 engine = pyttsx3.init()
@@ -161,6 +164,16 @@ def main():
     4. Triggers alerts when drowsiness is detected
     """
 
+    # ==================== COMMAND LINE ARGUMENTS ====================
+
+    parser = argparse.ArgumentParser(description='Lumo Drowsiness Detection System')
+    parser.add_argument('--camera', type=str, default='picamera',
+                        choices=['picamera', 'usb'],
+                        help='Camera to use: picamera (Raspberry Pi) or usb (Arducam OV2311)')
+    args = parser.parse_args()
+
+    use_usb_camera = (args.camera == 'usb')
+
     # ==================== SETUP PHASE ====================
 
     # Initialize MediaPipe Face Mesh for detecting facial landmarks
@@ -182,14 +195,38 @@ def main():
         min_tracking_confidence=0.5
     )
 
-    # Initialize Raspberry Pi Camera
-    picam2 = Picamera2()
-    picam2.preview_configuration.main.size = (1920, 1080)  # Full HD resolution
-    picam2.preview_configuration.main.format = "RGB888"     # RGB color format
-    picam2.configure("preview")
-    picam2.start()
-    time.sleep(1.0)  # Wait 1 second for camera to warm up
-    picam2.set_controls({"AfMode": 2})  # Enable continuous autofocus
+    # ==================== CAMERA INITIALIZATION ====================
+
+    picam2 = None
+    cap = None
+
+    if use_usb_camera:
+        # Initialize USB Camera (Arducam OV2311)
+        print("Initializing USB camera (Arducam OV2311)...")
+        cap = cv2.VideoCapture(8)
+        if not cap.isOpened():
+            cap = cv2.VideoCapture(9)
+        if not cap.isOpened():
+            print("Error: Could not open USB camera. Trying video0...")
+            cap = cv2.VideoCapture(0)
+        if not cap.isOpened():
+            print("Error: No USB camera found!")
+            return
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        print("USB camera initialized successfully!")
+    else:
+        # Initialize Raspberry Pi Camera
+        print("Initializing Raspberry Pi camera...")
+        from picamera2 import Picamera2
+        picam2 = Picamera2()
+        picam2.preview_configuration.main.size = (1920, 1080)  # Full HD resolution
+        picam2.preview_configuration.main.format = "RGB888"     # RGB color format
+        picam2.configure("preview")
+        picam2.start()
+        time.sleep(1.0)  # Wait 1 second for camera to warm up
+        picam2.set_controls({"AfMode": 2})  # Enable continuous autofocus
+        print("Raspberry Pi camera initialized successfully!")
 
     # 3D reference points for a generic human face model (in millimeters)
     # These correspond to specific facial landmarks and help calculate head pose
@@ -231,14 +268,26 @@ def main():
 
     while True:
         # Capture a frame from the camera
-        frame = picam2.capture_array()
+        if use_usb_camera:
+            ret, frame = cap.read()
+            if not ret:
+                print("Error: Failed to capture frame from USB camera")
+                break
+        else:
+            frame = picam2.capture_array()
+
         start_time = time.time()  # For FPS calculation
 
         # Flip frame horizontally (mirror mode for natural viewing)
         frame = cv2.flip(frame, 1)
 
-        # Convert color from RGB to BGR (MediaPipe expects BGR)
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        # Convert color format for MediaPipe processing (requires RGB)
+        if use_usb_camera:
+            # USB camera outputs BGR, convert to RGB for MediaPipe
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        else:
+            # Picamera2 outputs RGB888 format, already RGB
+            rgb_frame = frame.copy()
 
         # Process the frame to detect facial landmarks
         results = face_mesh.process(rgb_frame)
@@ -428,9 +477,19 @@ def main():
         cv2.putText(frame, f"FPS: {int(fps)}", (20, img_h - 20),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
 
-        # Resize frame to full HD and display it
-        resized_frame = cv2.resize(frame, (1920, 1080))
-        cv2.imshow("Head Pose & Blink Detection", resized_frame)
+        # Convert frame to BGR for display (cv2.imshow expects BGR)
+        if not use_usb_camera:
+            # Picamera2 outputs RGB, convert to BGR for display
+            frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+
+        # Display the frame (resize based on camera type)
+        if use_usb_camera:
+            # USB camera: display at larger size
+            resized_frame = cv2.resize(frame, (800, 600))
+        else:
+            # Picamera: resize to full HD
+            resized_frame = cv2.resize(frame, (1920, 1080))
+        cv2.imshow("Lumo - Drowsiness Detection", resized_frame)
 
         # ==================== KEYBOARD CONTROLS ====================
 
@@ -453,7 +512,12 @@ def main():
     cv2.destroyAllWindows()
 
     # Stop and close the camera
-    picam2.close()
+    if use_usb_camera:
+        cap.release()
+        print("USB camera released.")
+    else:
+        picam2.close()
+        print("Raspberry Pi camera closed.")
 
 # Entry point of the program
 if __name__ == "__main__":
