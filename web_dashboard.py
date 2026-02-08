@@ -103,7 +103,7 @@ def signup():
     '''
     return render_template_string(html_base, title="Create an Account",
                                   content=content,
-                                  logo=url_for('static', filename='SafeSenseLogo.png'))
+                                  logo=url_for('static', filename='LumoLogo.png'))
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
@@ -127,9 +127,9 @@ def login():
     </form>
     <div class="switch">New here? <a href="/signup">Sign up</a></div>
     '''
-    return render_template_string(html_base, title="SafeSense",
+    return render_template_string(html_base, title="Lumo",
                                   content=content,
-                                  logo=url_for('static', filename='SafeSenseLogo.png'))
+                                  logo=url_for('static', filename='LumoLogo.png'))
 
 @app.route("/main")
 def main_menu():
@@ -161,9 +161,9 @@ def main_menu():
     <form action="/logout" method="GET" style="margin-top:1rem;">
       <button type="submit" style="background:#e53935;">Sign Out</button></form>
     '''
-    return render_template_string(html_base, title="SafeSense",
+    return render_template_string(html_base, title="Lumo",
                                   content=content,
-                                  logo=url_for('static', filename='SafeSenseLogo.png'))
+                                  logo=url_for('static', filename='LumoLogo.png'))
 
 @app.route("/setname", methods=["GET", "POST"])
 def setname():
@@ -189,7 +189,7 @@ def setname():
     '''.format(username)
     return render_template_string(html_base, title="Set Name of Account",
                                   content=content,
-                                  logo=url_for('static', filename='SafeSenseLogo.png'))
+                                  logo=url_for('static', filename='LumoLogo.png'))
 
 @app.route("/reststops")
 def reststops():
@@ -209,7 +209,7 @@ def reststops():
     '''
     return render_template_string(html_base, title="Find Nearby Rest Stops",
                                   content=content,
-                                  logo=url_for('static', filename='SafeSenseLogo.png'))
+                                  logo=url_for('static', filename='LumoLogo.png'))
 
 @app.route("/alertstyle", methods=["GET", "POST"])
 def alertstyle():
@@ -250,7 +250,7 @@ def alertstyle():
     '''
     return render_template_string(html_base, title="Set Alert Style",
                                   content=content,
-                                  logo=url_for('static', filename='SafeSenseLogo.png'))
+                                  logo=url_for('static', filename='LumoLogo.png'))
 
 @app.route("/contacts", methods=["GET", "POST"])
 def contacts():
@@ -289,7 +289,7 @@ def contacts():
     '''
     return render_template_string(html_base, title="Emergency Contacts",
                                   content=content,
-                                  logo=url_for('static', filename='SafeSenseLogo.png'))
+                                  logo=url_for('static', filename='LumoLogo.png'))
 
 @app.route("/logout")
 def logout():

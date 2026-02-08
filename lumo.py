@@ -1,5 +1,5 @@
 """
-SafeSense - Drowsiness Detection System
+Lumo - Drowsiness Detection System
 This program monitors a person's face to detect signs of drowsiness by:
 1. Tracking head position (pitch, yaw, roll angles)
 2. Monitoring eye closure using Eye Aspect Ratio (EAR)

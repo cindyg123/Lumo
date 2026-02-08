@@ -1,7 +1,7 @@
-# SafeSense - File Descriptions
+# Lumo - File Descriptions
 
 ## Overview
-SafeSense is a drowsiness detection system designed to monitor drivers and alert them when signs of fatigue are detected. The system uses computer vision and facial landmark detection to track head pose and eye closure.
+Lumo is a drowsiness detection system designed to monitor drivers and alert them when signs of fatigue are detected. The system uses computer vision and facial landmark detection to track head pose and eye closure.
 
 ---
 
@@ -10,7 +10,7 @@ SafeSense is a drowsiness detection system designed to monitor drivers and alert
 ### [web_dashboard.py](web_dashboard.py)
 **Flask Web Application Server**
 
-A comprehensive web server that provides the user interface and management system for SafeSense.
+A comprehensive web server that provides the user interface and management system for Lumo.
 
 **Features:**
 - User authentication (signup/login)
@@ -35,10 +35,10 @@ A comprehensive web server that provides the user interface and management syste
 
 ---
 
-### [safesense.py](safesense.py)
+### [lumo.py](lumo.py)
 **Production Drowsiness Detection System**
 
-The production-ready version of the SafeSense drowsiness detection system with integrated audio alerts.
+The production-ready version of the Lumo drowsiness detection system with integrated audio alerts.
 
 **Features:**
 - Real-time face mesh tracking using MediaPipe
@@ -75,7 +75,7 @@ A streamlined version of the drowsiness detection system without audio alerts.
 - Raspberry Pi Camera support
 - Lightweight and focused on core detection
 
-**Differences from safesense.py:**
+**Differences from lumo.py:**
 - No audio alert system
 - No pyttsx3 or playsound dependencies
 - Displays at 640x480 (vs 1920x1080)
@@ -100,7 +100,7 @@ The earliest version of the head pose estimation system.
 - Simpler landmark set (6 points vs 7 in later versions)
 - Basic orientation text display
 - No eye closure detection
-- Foundation for later SafeSense versions
+- Foundation for later Lumo versions
 
 ---
 
@@ -129,7 +129,7 @@ An experimental machine learning model using quantum computing concepts for eye 
 - 10 epochs
 - Adam optimizer with sparse categorical crossentropy loss
 
-**Note:** This appears to be an experimental/research component and may not be integrated into the main SafeSense application.
+**Note:** This appears to be an experimental/research component and may not be integrated into the main Lumo application.
 
 ---
 
@@ -144,7 +144,7 @@ An experimental machine learning model using quantum computing concepts for eye 
          └── alert_style.json
                  ↓
          ┌──────────────┐
-         │  safesense.py│ ← Main Detection System
+         │  lumo.py│ ← Main Detection System
          └──────────────┘
                  ↑
          ┌──────────────┐
@@ -213,7 +213,7 @@ An experimental machine learning model using quantum computing concepts for eye 
 
 2. **Run the detection system:**
    ```bash
-   python safesense.py
+   python lumo.py
    ```
 
 3. **Controls:**
@@ -226,6 +226,6 @@ An experimental machine learning model using quantum computing concepts for eye 
 
 1. **head_pose_prototype.py** - Initial head pose tracking concept
 2. **basic_drowsiness_detector.py** - Added eye closure detection
-3. **safesense.py** - Production system with audio alerts and customization
+3. **lumo.py** - Production system with audio alerts and customization
 4. **web_dashboard.py** - Web-based configuration and management
 5. **quantum_eye_classifier.py** - Experimental quantum ML approach (research)
