@@ -1,7 +1,7 @@
 """
-RGB Camera Heatmap + Drowsiness Detection
+Arducam UC-852 (OV9782) - Heatmap + Drowsiness Detection
 Combines heatmap visualization with face mesh, EAR eye tracking, and PERCLOS measurement.
-Left side: RGB camera with face mesh + detection overlays
+Left side: Camera with face mesh + detection overlays
 Right side: Heatmap view
 Press 'q' to quit, 'r' to reset head pose.
 """
@@ -11,7 +11,6 @@ import numpy as np
 import math
 import time
 from collections import deque
-from picamera2 import Picamera2
 
 def rotation_matrix_to_euler_angles(R):
     sy = math.sqrt(R[0, 0]**2 + R[1, 0]**2)
@@ -50,14 +49,16 @@ face_mesh = mp_face_mesh.FaceMesh(
     min_tracking_confidence=0.5
 )
 
-# Initialize Raspberry Pi Camera
-picam2 = Picamera2()
-picam2.preview_configuration.main.size = (1920, 1080)
-picam2.preview_configuration.main.format = "RGB888"
-picam2.configure("preview")
-picam2.start()
-time.sleep(1.0)
-picam2.set_controls({"AfMode": 2})
+# Initialize Arducam UC-852 (OV9782) at /dev/video0
+cap = cv2.VideoCapture(0)
+if not cap.isOpened():
+    cap = cv2.VideoCapture(1)
+if not cap.isOpened():
+    print("Error: Could not open Arducam UC-852!")
+    exit(1)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 800)
+print("Arducam UC-852 (OV9782) initialized!")
 
 # 3D reference points for head pose estimation
 reference_3d_points = np.array([
@@ -78,8 +79,7 @@ left_eye_closed_count = 0
 right_eye_closed_count = 0
 
 # PERCLOS: percentage of eye closure over a rolling window
-# PERCLOS > 40% = drowsy
-perclos_window = deque(maxlen=150)  # ~7.5 seconds at 20 FPS
+perclos_window = deque(maxlen=150)
 perclos_value = 0.0
 perclos_threshold = 40.0
 
@@ -88,16 +88,19 @@ pitch_offset = 0.0
 yaw_offset = 0.0
 roll_offset = 0.0
 
-print("RGB Heatmap + Detection running. Press 'q' to quit, 'r' to reset pose.")
+print("Arducam Heatmap + Detection running. Press 'q' to quit, 'r' to reset pose.")
 
 while True:
-    frame = picam2.capture_array()
+    ret, frame = cap.read()
+    if not ret:
+        print("Error: Failed to capture frame")
+        break
+
     start_time = time.time()
-
     frame = cv2.flip(frame, 1)
-    rgb_frame = frame.copy()
 
-    # Process face landmarks
+    # Convert BGR to RGB for MediaPipe
+    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     results = face_mesh.process(rgb_frame)
     img_h, img_w, _ = frame.shape
 
@@ -197,7 +200,7 @@ while True:
         else:
             right_eye_closed_count = 0
 
-        # PERCLOS: track whether eyes are closed this frame (1=closed, 0=open)
+        # PERCLOS tracking
         both_closed = (left_ear < ear_threshold and right_ear < ear_threshold)
         perclos_window.append(1 if both_closed else 0)
         if len(perclos_window) > 0:
@@ -223,27 +226,25 @@ while True:
     end_time = time.time()
     fps = 1.0 / (end_time - start_time + 1e-6)
 
-    # Draw text overlays on the RGB frame
+    # Draw text overlays
     cv2.putText(frame, pitch_text, (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
     cv2.putText(frame, yaw_text, (20, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
     cv2.putText(frame, roll_text, (20, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
     cv2.putText(frame, orientation_text, (20, 140), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
     cv2.putText(frame, f"Eyes: {eye_status_text}", (20, 180), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
 
-    # PERCLOS display - turns red if above threshold
     perclos_color = (0, 0, 255) if perclos_value > perclos_threshold else (0, 255, 0)
     cv2.putText(frame, f"PERCLOS: {perclos_value:.1f}%", (20, 220), cv2.FONT_HERSHEY_SIMPLEX, 0.8, perclos_color, 2)
-
     cv2.putText(frame, f"FPS: {int(fps)}", (20, img_h - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
 
-    # Generate heatmap from the frame
-    gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+    # Generate heatmap
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     heatmap = cv2.applyColorMap(gray, cv2.COLORMAP_JET)
 
-    # Side by side: RGB with overlays | Heatmap
+    # Side by side: Camera with overlays | Heatmap
     combined = cv2.hconcat([frame, heatmap])
     combined = cv2.resize(combined, (1400, 500))
-    cv2.imshow("Lumo - RGB + Heatmap + Detection", combined)
+    cv2.imshow("Lumo - Arducam UC-852 + Heatmap + Detection", combined)
 
     key = cv2.waitKey(5) & 0xFF
     if key in [27, ord('q')]:
@@ -254,5 +255,5 @@ while True:
         roll_offset = display_roll
         print("Pose reset to 0.")
 
-picam2.close()
+cap.release()
 cv2.destroyAllWindows()

@@ -16,6 +16,7 @@ import pyttsx3  # Text-to-speech engine for audio alerts
 import os  # Operating system interface for file operations
 import json  # JSON library for reading configuration files
 import argparse  # Command line argument parsing
+from collections import deque  # For PERCLOS rolling window
 
 # Camera selection: "picamera" for Raspberry Pi camera, "usb" for Arducam OV2311
 # Use command line argument --camera usb or --camera picamera to select
@@ -255,6 +256,15 @@ def main():
     # Counters to track how many frames each eye has been closed
     left_eye_closed_count = 0
     right_eye_closed_count = 0
+
+    # ==================== PERCLOS SETTINGS ====================
+
+    # PERCLOS = Percentage of Eye Closure over time
+    # Tracks what % of frames had eyes closed in a rolling window
+    # PERCLOS > 40% is considered drowsy
+    perclos_window = deque(maxlen=150)  # ~7.5 seconds at 20 FPS
+    perclos_value = 0.0
+    perclos_threshold = 40.0  # Alert if eyes closed more than 40% of the time
 
     # ==================== HEAD POSE CALIBRATION ====================
 
