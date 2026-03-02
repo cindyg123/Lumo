@@ -273,13 +273,13 @@ while True:
         # Say the results out loud with pauses
         engine.say(f"{blink_count} blinks in 60 seconds.")
         engine.runAndWait()
-        time.sleep(3)
+        time.sleep(1.5)
         engine.say(f"{hot_ratio:.0f} percent hot.")
         engine.runAndWait()
-        time.sleep(3)
+        time.sleep(1.5)
         engine.say(f"{warm_ratio:.0f} percent warm.")
         engine.runAndWait()
-        time.sleep(3)
+        time.sleep(1.5)
         engine.say(f"{cool_ratio:.0f} percent cool.")
         engine.runAndWait()
         break
