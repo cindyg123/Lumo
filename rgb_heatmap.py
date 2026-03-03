@@ -1,8 +1,9 @@
 """
 RGB Camera Heatmap + Drowsiness Detection
-Combines heatmap visualization with face mesh, EAR eye tracking, and PERCLOS measurement.
+Combines heatmap visualization with face mesh, EAR eye tracking, PERCLOS, blink counter,
+60-second timer, heat ratios, and voice results.
 Left side: RGB camera with face mesh + detection overlays
-Right side: Heatmap view
+Right side: Heatmap with heat ratios
 Press 'q' to quit, 'r' to reset head pose.
 """
 import cv2
@@ -10,8 +11,13 @@ import mediapipe as mp
 import numpy as np
 import math
 import time
+import pyttsx3
 from collections import deque
 from picamera2 import Picamera2
+
+# Initialize text-to-speech engine
+engine = pyttsx3.init()
+engine.setProperty('rate', 150)
 
 def rotation_matrix_to_euler_angles(R):
     sy = math.sqrt(R[0, 0]**2 + R[1, 0]**2)
@@ -78,8 +84,7 @@ left_eye_closed_count = 0
 right_eye_closed_count = 0
 
 # PERCLOS: percentage of eye closure over a rolling window
-# PERCLOS > 40% = drowsy
-perclos_window = deque(maxlen=150)  # ~7.5 seconds at 20 FPS
+perclos_window = deque(maxlen=150)
 perclos_value = 0.0
 perclos_threshold = 40.0
 
@@ -88,7 +93,15 @@ pitch_offset = 0.0
 yaw_offset = 0.0
 roll_offset = 0.0
 
-print("RGB Heatmap + Detection running. Press 'q' to quit, 'r' to reset pose.")
+# Timer: 60 seconds then auto-quit
+timer_duration = 60
+timer_start = time.time()
+
+# Blink counter
+blink_count = 0
+was_blinking = False
+
+print("RGB Heatmap + Detection running. 60 second timer started!")
 
 while True:
     frame = picam2.capture_array()
@@ -101,10 +114,6 @@ while True:
     results = face_mesh.process(rgb_frame)
     img_h, img_w, _ = frame.shape
 
-    pitch_text = ""
-    yaw_text = ""
-    roll_text = ""
-    orientation_text = ""
     eye_status_text = ""
     display_pitch = 0
     display_yaw = 0
@@ -139,30 +148,9 @@ while True:
             rmat, _ = cv2.Rodrigues(rotation_vector)
             euler_angles = rotation_matrix_to_euler_angles(rmat) * (180.0 / math.pi)
             pitch, yaw, roll = euler_angles
-
             display_pitch = pitch - pitch_offset
             display_yaw = yaw - yaw_offset
             display_roll = roll - roll_offset
-
-            pitch_text = f"Pitch: {display_pitch:.2f}"
-            yaw_text = f"Yaw:   {display_yaw:.2f}"
-            roll_text = f"Roll:  {display_roll:.2f}"
-
-            pitch_up = (display_pitch > 180 and display_pitch < 353)
-            pitch_down = (display_pitch < 180 and display_pitch > 7)
-            yaw_left = (display_yaw > 7)
-            yaw_right = (display_yaw < -7)
-
-            orientation_text = "Forward"
-            if pitch_up:
-                orientation_text = "Looking Up-Left" if yaw_left else "Looking Up-Right" if yaw_right else "Looking Up"
-            elif pitch_down:
-                orientation_text = "Looking Down-Left" if yaw_left else "Looking Down-Right" if yaw_right else "Looking Down"
-            else:
-                if yaw_left:
-                    orientation_text = "Looking Left"
-                elif yaw_right:
-                    orientation_text = "Looking Right"
 
             # Draw nose direction line
             nose_idx = landmark_ids_pose.index(1)
@@ -197,11 +185,17 @@ while True:
         else:
             right_eye_closed_count = 0
 
-        # PERCLOS: track whether eyes are closed this frame (1=closed, 0=open)
+        # PERCLOS tracking
         both_closed = (left_ear < ear_threshold and right_ear < ear_threshold)
         perclos_window.append(1 if both_closed else 0)
         if len(perclos_window) > 0:
             perclos_value = (sum(perclos_window) / len(perclos_window)) * 100
+
+        # Blink counting
+        eyes_closed_now = (left_ear < ear_threshold and right_ear < ear_threshold)
+        if was_blinking and not eyes_closed_now:
+            blink_count += 1
+        was_blinking = eyes_closed_now
 
         # Determine eye status
         if (left_eye_closed_count > eye_closed_frames_threshold and
@@ -223,24 +217,84 @@ while True:
     end_time = time.time()
     fps = 1.0 / (end_time - start_time + 1e-6)
 
-    # Draw text overlays on the RGB frame
-    cv2.putText(frame, pitch_text, (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-    cv2.putText(frame, yaw_text, (20, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-    cv2.putText(frame, roll_text, (20, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-    cv2.putText(frame, orientation_text, (20, 140), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
-    cv2.putText(frame, f"Eyes: {eye_status_text}", (20, 180), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+    # Generate face-only heatmap BEFORE drawing text
+    gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+    # Start with a black background for heatmap
+    heatmap = np.zeros_like(frame)
 
-    # PERCLOS display - turns red if above threshold
+    if results.multi_face_landmarks:
+        # Get face bounding box from landmarks
+        face_lms = results.multi_face_landmarks[0]
+        xs = [int(lm.x * img_w) for lm in face_lms.landmark]
+        ys = [int(lm.y * img_h) for lm in face_lms.landmark]
+        x_min = max(0, min(xs) - 20)
+        x_max = min(img_w, max(xs) + 20)
+        y_min = max(0, min(ys) - 20)
+        y_max = min(img_h, max(ys) + 20)
+
+        # Apply heatmap only to face region
+        face_gray = gray[y_min:y_max, x_min:x_max]
+        face_heatmap = cv2.applyColorMap(face_gray, cv2.COLORMAP_JET)
+        heatmap[y_min:y_max, x_min:x_max] = face_heatmap
+    else:
+        # No face detected, show full heatmap as fallback
+        heatmap = cv2.applyColorMap(gray, cv2.COLORMAP_JET)
+
+    # Draw text overlays on camera side only
+    cv2.putText(frame, f"Eyes: {eye_status_text}", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+
     perclos_color = (0, 0, 255) if perclos_value > perclos_threshold else (0, 255, 0)
-    cv2.putText(frame, f"PERCLOS: {perclos_value:.1f}%", (20, 220), cv2.FONT_HERSHEY_SIMPLEX, 0.8, perclos_color, 2)
+    cv2.putText(frame, f"PERCLOS: {perclos_value:.1f}%", (20, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.8, perclos_color, 2)
+    cv2.putText(frame, f"Blinks: {blink_count}", (20, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
+
+    # Timer countdown
+    elapsed = time.time() - timer_start
+    remaining = max(0, timer_duration - elapsed)
+    minutes = int(remaining) // 60
+    seconds = int(remaining) % 60
+    timer_color = (0, 0, 255) if remaining < 10 else (0, 255, 255)
+    cv2.putText(frame, f"Timer: {minutes}:{seconds:02d}", (20, 160), cv2.FONT_HERSHEY_SIMPLEX, 0.8, timer_color, 2)
 
     cv2.putText(frame, f"FPS: {int(fps)}", (20, img_h - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
 
-    # Generate heatmap from the frame
-    gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
-    heatmap = cv2.applyColorMap(gray, cv2.COLORMAP_JET)
+    # Auto-quit when timer runs out
+    if remaining <= 0:
+        print(f"\nTime's up! Total blinks in 60 seconds: {blink_count}")
+        print(f"Hot: {hot_ratio:.1f}%, Warm: {warm_ratio:.1f}%, Cool: {cool_ratio:.1f}%")
+        # Say the results out loud with pauses
+        engine.say(f"{blink_count} blinks in 60 seconds.")
+        engine.runAndWait()
+        time.sleep(1.5)
+        engine.say(f"{hot_ratio:.0f} percent hot.")
+        engine.runAndWait()
+        time.sleep(1.5)
+        engine.say(f"{warm_ratio:.0f} percent warm.")
+        engine.runAndWait()
+        time.sleep(1.5)
+        engine.say(f"{cool_ratio:.0f} percent cool.")
+        engine.runAndWait()
+        break
 
-    # Side by side: RGB with overlays | Heatmap
+    # Calculate heat ratios (face region only if detected)
+    if results.multi_face_landmarks:
+        face_region = gray[y_min:y_max, x_min:x_max]
+    else:
+        face_region = gray
+    total_pixels = face_region.shape[0] * face_region.shape[1]
+    hot_pixels = np.count_nonzero(face_region > 200)
+    warm_pixels = np.count_nonzero(face_region > 150)
+    cool_pixels = total_pixels - warm_pixels
+
+    hot_ratio = (hot_pixels / total_pixels) * 100
+    warm_ratio = (warm_pixels / total_pixels) * 100
+    cool_ratio = (cool_pixels / total_pixels) * 100
+
+    # Display heat ratios on heatmap side
+    cv2.putText(heatmap, f"Hot (red): {hot_ratio:.1f}%", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    cv2.putText(heatmap, f"Warm (yellow): {warm_ratio:.1f}%", (20, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    cv2.putText(heatmap, f"Cool (blue): {cool_ratio:.1f}%", (20, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+
+    # Side by side: RGB with overlays | Heatmap with ratios
     combined = cv2.hconcat([frame, heatmap])
     combined = cv2.resize(combined, (1400, 500))
     cv2.imshow("Lumo - RGB + Heatmap + Detection", combined)

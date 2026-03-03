@@ -245,9 +245,24 @@ while True:
     end_time = time.time()
     fps = 1.0 / (end_time - start_time + 1e-6)
 
-    # Generate heatmap BEFORE drawing text (so text doesn't bleed into heatmap)
+    # Generate face-only heatmap BEFORE drawing text
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    heatmap = cv2.applyColorMap(gray, cv2.COLORMAP_JET)
+    heatmap = np.zeros_like(frame)
+
+    if results.multi_face_landmarks:
+        face_lms = results.multi_face_landmarks[0]
+        xs = [int(lm.x * img_w) for lm in face_lms.landmark]
+        ys = [int(lm.y * img_h) for lm in face_lms.landmark]
+        x_min = max(0, min(xs) - 20)
+        x_max = min(img_w, max(xs) + 20)
+        y_min = max(0, min(ys) - 20)
+        y_max = min(img_h, max(ys) + 20)
+
+        face_gray = gray[y_min:y_max, x_min:x_max]
+        face_heatmap = cv2.applyColorMap(face_gray, cv2.COLORMAP_JET)
+        heatmap[y_min:y_max, x_min:x_max] = face_heatmap
+    else:
+        heatmap = cv2.applyColorMap(gray, cv2.COLORMAP_JET)
 
     # Now draw text overlays on camera side only
     cv2.putText(frame, f"Eyes: {eye_status_text}", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
@@ -284,12 +299,15 @@ while True:
         engine.runAndWait()
         break
 
-    # Calculate heat ratio: percentage of pixels that are "hot" (red/warm)
-    # In JET colormap, red/warm = high brightness in grayscale (above 200 out of 255)
-    total_pixels = gray.shape[0] * gray.shape[1]
-    hot_pixels = np.count_nonzero(gray > 200)       # Red zone (very bright)
-    warm_pixels = np.count_nonzero(gray > 150)       # Warm zone (bright)
-    cool_pixels = total_pixels - warm_pixels          # Cool zone (dark)
+    # Calculate heat ratios (face region only if detected)
+    if results.multi_face_landmarks:
+        face_region = gray[y_min:y_max, x_min:x_max]
+    else:
+        face_region = gray
+    total_pixels = face_region.shape[0] * face_region.shape[1]
+    hot_pixels = np.count_nonzero(face_region > 200)
+    warm_pixels = np.count_nonzero(face_region > 150)
+    cool_pixels = total_pixels - warm_pixels
 
     hot_ratio = (hot_pixels / total_pixels) * 100
     warm_ratio = (warm_pixels / total_pixels) * 100
