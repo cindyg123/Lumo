@@ -54,8 +54,12 @@ face_mesh = mp_face_mesh.FaceMesh(
     min_tracking_confidence=0.5
 )
 
-# Initialize NIR Camera (PYO64W / OV2311) at /dev/video0
-cap = cv2.VideoCapture(0)
+# Initialize NIR Camera (PYO64W / OV2311)
+cap = cv2.VideoCapture(8)
+if not cap.isOpened():
+    cap = cv2.VideoCapture(9)
+if not cap.isOpened():
+    cap = cv2.VideoCapture(0)
 if not cap.isOpened():
     cap = cv2.VideoCapture(1)
 if not cap.isOpened():
@@ -63,6 +67,12 @@ if not cap.isOpened():
     exit(1)
 cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
 cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+
+# Warm up camera - discard initial frames to avoid V4L2 timeout
+for _ in range(10):
+    cap.read()
+    time.sleep(0.1)
+
 print("NIR Camera (PYO64W / OV2311) initialized!")
 
 # 3D reference points for head pose estimation
@@ -78,7 +88,7 @@ reference_3d_points = np.array([
 landmark_ids_pose = [10, 152, 234, 454, 1, 78, 308]
 
 # Drowsiness detection settings
-ear_threshold = 0.35
+ear_threshold = 0.40
 eye_closed_frames_threshold = 15
 left_eye_closed_count = 0
 right_eye_closed_count = 0
@@ -112,8 +122,16 @@ while True:
     start_time = time.time()
     frame = cv2.flip(frame, 1)
 
-    # Convert BGR to RGB for MediaPipe
-    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    # Enhance contrast for NIR image before MediaPipe processing
+    lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
+    l, a, b = cv2.split(lab)
+    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+    l = clahe.apply(l)
+    enhanced = cv2.merge([l, a, b])
+    enhanced = cv2.cvtColor(enhanced, cv2.COLOR_LAB2BGR)
+
+    # Convert enhanced BGR to RGB for MediaPipe
+    rgb_frame = cv2.cvtColor(enhanced, cv2.COLOR_BGR2RGB)
     results = face_mesh.process(rgb_frame)
     img_h, img_w, _ = frame.shape
 
