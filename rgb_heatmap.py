@@ -241,11 +241,17 @@ while True:
         heatmap = cv2.applyColorMap(gray, cv2.COLORMAP_JET)
 
     # Draw text overlays on camera side only
-    cv2.putText(frame, f"Eyes: {eye_status_text}", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+    if eye_status_text == "SLEEPING!":
+        eye_color = (0, 0, 255)
+    elif eye_status_text == "Blinking":
+        eye_color = (0, 255, 255)
+    else:
+        eye_color = (0, 255, 0)
+    cv2.putText(frame, f"Eyes: {eye_status_text}", (40, 80), cv2.FONT_HERSHEY_SIMPLEX, 2.0, eye_color, 4)
 
     perclos_color = (0, 0, 255) if perclos_value > perclos_threshold else (0, 255, 0)
-    cv2.putText(frame, f"PERCLOS: {perclos_value:.1f}%", (20, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.8, perclos_color, 2)
-    cv2.putText(frame, f"Blinks: {blink_count}", (20, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 255), 2)
+    cv2.putText(frame, f"PERCLOS: {perclos_value:.1f}%", (40, 160), cv2.FONT_HERSHEY_SIMPLEX, 2.0, perclos_color, 4)
+    cv2.putText(frame, f"Blinks: {blink_count}", (40, 240), cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0, 255, 255), 4)
 
     # Timer countdown
     elapsed = time.time() - timer_start
@@ -253,13 +259,14 @@ while True:
     minutes = int(remaining) // 60
     seconds = int(remaining) % 60
     timer_color = (0, 0, 255) if remaining < 10 else (0, 255, 255)
-    cv2.putText(frame, f"Timer: {minutes}:{seconds:02d}", (20, 160), cv2.FONT_HERSHEY_SIMPLEX, 0.8, timer_color, 2)
+    cv2.putText(frame, f"Timer: {minutes}:{seconds:02d}", (40, 320), cv2.FONT_HERSHEY_SIMPLEX, 2.0, timer_color, 4)
 
-    cv2.putText(frame, f"FPS: {int(fps)}", (20, img_h - 20), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+    cv2.putText(frame, f"FPS: {int(fps)}", (40, img_h - 40), cv2.FONT_HERSHEY_SIMPLEX, 2.0, (0, 255, 0), 4)
 
     # Auto-quit when timer runs out
     if remaining <= 0:
         print(f"\nTime's up! Total blinks in 60 seconds: {blink_count}")
+        print(f"PERCLOS: {perclos_value:.1f}%")
         print(f"Hot: {hot_ratio:.1f}%, Warm: {warm_ratio:.1f}%, Cool: {cool_ratio:.1f}%")
         # Say the results out loud with pauses
         engine.say(f"{blink_count} blinks in 60 seconds.")
@@ -290,9 +297,9 @@ while True:
     cool_ratio = (cool_pixels / total_pixels) * 100
 
     # Display heat ratios on heatmap side
-    cv2.putText(heatmap, f"Hot (red): {hot_ratio:.1f}%", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-    cv2.putText(heatmap, f"Warm (yellow): {warm_ratio:.1f}%", (20, 70), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-    cv2.putText(heatmap, f"Cool (blue): {cool_ratio:.1f}%", (20, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    cv2.putText(heatmap, f"Hot (red): {hot_ratio:.1f}%", (40, 80), cv2.FONT_HERSHEY_SIMPLEX, 1.8, (255, 255, 255), 4)
+    cv2.putText(heatmap, f"Warm (yellow): {warm_ratio:.1f}%", (40, 160), cv2.FONT_HERSHEY_SIMPLEX, 1.8, (255, 255, 255), 4)
+    cv2.putText(heatmap, f"Cool (blue): {cool_ratio:.1f}%", (40, 240), cv2.FONT_HERSHEY_SIMPLEX, 1.8, (255, 255, 255), 4)
 
     # Side by side: RGB with overlays | Heatmap with ratios
     combined = cv2.hconcat([frame, heatmap])

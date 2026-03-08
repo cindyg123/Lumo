@@ -283,7 +283,13 @@ while True:
         heatmap = cv2.applyColorMap(gray, cv2.COLORMAP_JET)
 
     # Now draw text overlays on camera side only
-    cv2.putText(frame, f"Eyes: {eye_status_text}", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+    if eye_status_text == "SLEEPING!":
+        eye_color = (0, 0, 255)
+    elif eye_status_text == "Blinking":
+        eye_color = (0, 255, 255)
+    else:
+        eye_color = (0, 255, 0)
+    cv2.putText(frame, f"Eyes: {eye_status_text}", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.8, eye_color, 2)
 
     perclos_color = (0, 0, 255) if perclos_value > perclos_threshold else (0, 255, 0)
     cv2.putText(frame, f"PERCLOS: {perclos_value:.1f}%", (20, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.8, perclos_color, 2)
@@ -302,6 +308,7 @@ while True:
     # Auto-quit when timer runs out
     if remaining <= 0:
         print(f"\nTime's up! Total blinks in 60 seconds: {blink_count}")
+        print(f"PERCLOS: {perclos_value:.1f}%")
         print(f"Hot: {hot_ratio:.1f}%, Warm: {warm_ratio:.1f}%, Cool: {cool_ratio:.1f}%")
         # Say the results out loud with pauses
         engine.say(f"{blink_count} blinks in 60 seconds.")
